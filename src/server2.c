@@ -4,10 +4,10 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-#define PORT 51511           // Porta padrão
-#define MAX_CLIENTS 1        // Número máximo de clientes suportados
-#define BUFFER_SIZE 1024     // Tamanho do buffer para mensagens
-#define TAMANHO_LABIRINTO 10    // Tamanho máximo do labirinto
+#define PORT 51511 // Porta padrão
+#define MAX_CLIENTS 1 // Número máximo de clientes suportados
+#define BUFFER_SIZE 1024 // Tamanho do buffer para mensagens
+#define TAMANHO_LABIRINTO 10 // Tamanho máximo do labirinto
 
 // Tipos de ações
 #define ACTION_START 0
@@ -74,7 +74,6 @@ void load_labyrinth(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO_L
     fclose(file);
 }
 
-
 void get_valid_moves(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int player_pos[2], int moves[100]) {
     int x = player_pos[0], y = player_pos[1];
     int idx = 0;
@@ -86,7 +85,6 @@ void get_valid_moves(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int player
 
     while (idx < 100) moves[idx++] = 0; // Preencher restante com 0
 }
-
 
 void update_player_position(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int *x, int *y, int direction) {
     board[*x][*y] = PATH; // Liberar posição atual
@@ -118,14 +116,9 @@ void configure_server_address(const char *version, int port, struct sockaddr_sto
     }
 }
 
-
-void handle_client(int client_socket, char *labyrinth_file) {
-    struct action client_action, server_response;   
-    int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO] = {0};
+void handle_client(int client_socket, int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
+    struct action client_action, server_response; 
     int player_pos[2] = {0, 0}; // Posição inicial do jogador
-
-    // Carregar o labirinto do arquivo
-    load_labyrinth(labyrinth_file, labyrinth);
 
     // Loop principal de comunicação
     while (1) {
@@ -149,7 +142,6 @@ void handle_client(int client_socket, char *labyrinth_file) {
                     update_player_position(labyrinth, &player_pos[0], &player_pos[1], client_action.moves[0]);
                     server_response.type = ACTION_UPDATE;
                     get_valid_moves(labyrinth, player_pos, server_response.moves);
-                } else {
                 }
                 send(client_socket, &server_response, sizeof(server_response), 0);
                 break;
@@ -160,8 +152,7 @@ void handle_client(int client_socket, char *labyrinth_file) {
                 break;
 
             case ACTION_RESET:
-                printf(" starting new game\n");
-                load_labyrinth(labyrinth_file, labyrinth);
+                printf("starting new game\n");
                 for (int i = 0; i < TAMANHO_LABIRINTO; i++) {
                     for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
                         if (labyrinth[i][j] == ENTRY) {
@@ -183,13 +174,12 @@ void handle_client(int client_socket, char *labyrinth_file) {
                 return;
 
             default:
-
+                break;
         }
     }
 
     close(client_socket);
 }
-
 
 int main(int argc, char *argv[]) {
     if (argc != 5 || strcmp(argv[3], "-i") != 0) {
@@ -201,6 +191,11 @@ int main(int argc, char *argv[]) {
     int port = atoi(argv[2]);
     char *labyrinth_file = argv[4];
 
+    int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO] = {0};
+
+    // Carregar o labirinto do arquivo
+    load_labyrinth(labyrinth_file, labyrinth);
+
     int server_socket;
     struct sockaddr_storage server_addr;
     socklen_t addr_len;
@@ -208,7 +203,7 @@ int main(int argc, char *argv[]) {
     // Configurar endereço do servidor
     configure_server_address(ip_version, port, &server_addr, &addr_len);
 
-    // Criar socket
+
     int domain = (strcmp(ip_version, "v4") == 0) ? AF_INET : AF_INET6;
     if ((server_socket = socket(domain, SOCK_STREAM, 0)) == -1) {
         perror("Erro ao criar o socket");
@@ -233,14 +228,12 @@ int main(int argc, char *argv[]) {
         struct sockaddr_storage client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
         int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_len);
-
         if (client_socket == -1) {
             perror("Erro ao aceitar conexão");
             continue;
         }
-
         printf("client connected\n");
-        handle_client(client_socket, labyrinth_file);
+        handle_client(client_socket, labyrinth);
     }
 
     close(server_socket);

@@ -3,9 +3,10 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
-#define BUFFER_SIZE 1024     // Tamanho do buffer para mensagens
-#define LABYRINTH_SIZE 10    // Tamanho máximo do labirinto
+#define BUFFER_SIZE 1024 // Tamanho do buffer para mensagens
+#define TAMANHO_LABIRINTO 10 // Tamanho máximo do labirinto
 
 // Tipos de ações
 #define ACTION_START 0
@@ -29,9 +30,8 @@
 struct action {
     int type;
     int moves[100];
-    int board[LABYRINTH_SIZE][LABYRINTH_SIZE];
+    int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO];
 };
-
 
 void display_moves(int moves[100]) {
     printf("Possible moves: ");
@@ -51,10 +51,10 @@ void display_moves(int moves[100]) {
     printf(".\n");
 }
 
-void display_board(int board[LABYRINTH_SIZE][LABYRINTH_SIZE]) {
+void display_board(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
     printf("Mapa do labirinto:\n");
-    for (int i = 0; i < LABYRINTH_SIZE; i++) {
-        for (int j = 0; j < LABYRINTH_SIZE; j++) {
+    for (int i = 0; i < TAMANHO_LABIRINTO; i++) {
+        for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
             char symbol;
             switch (board[i][j]) {
                 case 0: symbol = WALL; break;
@@ -81,51 +81,64 @@ void send_action(int socket, int action_type, int move) {
     }
 }
 
+void configure_client_address(const char *server_ip, int port, struct sockaddr_storage *server_addr, socklen_t *addr_len) {
+    struct addrinfo hints, *res;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC; // Permite IPv4 ou IPv6
+    hints.ai_socktype = SOCK_STREAM;
 
-void configure_client_address(const char *ip_version, const char *server_ip, int port, struct sockaddr_storage *server_addr, socklen_t *addr_len) {
-    if (strcmp(ip_version, "v4") == 0) {
+    if (getaddrinfo(server_ip, NULL, &hints, &res) != 0) {
+        perror("Erro ao resolver endereço");
+        exit(EXIT_FAILURE);
+    }
+
+    if (res->ai_family == AF_INET) { // IPv4
         struct sockaddr_in *addr = (struct sockaddr_in *)server_addr;
         *addr_len = sizeof(struct sockaddr_in);
         addr->sin_family = AF_INET;
         addr->sin_port = htons(port);
-        if (inet_pton(AF_INET, server_ip, &addr->sin_addr) <= 0) {
-            perror("Endereço IP inválido");
-            exit(EXIT_FAILURE);
-        }
-    } else if (strcmp(ip_version, "v6") == 0) {
+        addr->sin_addr = ((struct sockaddr_in *)res->ai_addr)->sin_addr;
+    } else if (res->ai_family == AF_INET6) { // IPv6
         struct sockaddr_in6 *addr = (struct sockaddr_in6 *)server_addr;
         *addr_len = sizeof(struct sockaddr_in6);
         addr->sin6_family = AF_INET6;
         addr->sin6_port = htons(port);
-        if (inet_pton(AF_INET6, server_ip, &addr->sin6_addr) <= 0) {
-            perror("Endereço IPv6 inválido");
-            exit(EXIT_FAILURE);
-        }
+        addr->sin6_addr = ((struct sockaddr_in6 *)res->ai_addr)->sin6_addr;
     } else {
-        fprintf(stderr, "Versão de IP inválida: %s\n", ip_version);
+        fprintf(stderr, "Versão de IP não suportada\n");
         exit(EXIT_FAILURE);
     }
+
+    freeaddrinfo(res);
+}
+
+int is_valid_move(int move, int valid_moves[100]) {
+    for (int i = 0; i < 100 && valid_moves[i] != 0; i++) {
+        if (valid_moves[i] == move) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 4) {
-        fprintf(stderr, "Uso: %s <v4/v6> <endereco_servidor> <porta>\n", argv[0]);
+    if (argc != 3) {
+        fprintf(stderr, "Uso: %s <endereco_servidor> <porta>\n", argv[0]);
         return EXIT_FAILURE;
     }
 
-    const char *ip_version = argv[1];
-    const char *server_ip = argv[2];
-    int port = atoi(argv[3]);
+    const char *server_ip = argv[1];
+    int port = atoi(argv[2]);
 
     int client_socket;
     struct sockaddr_storage server_addr;
     socklen_t addr_len;
 
     // Configurar endereço do servidor
-    configure_client_address(ip_version, server_ip, port, &server_addr, &addr_len);
+    configure_client_address(server_ip, port, &server_addr, &addr_len);
 
     // Criar socket
-    int domain = (strcmp(ip_version, "v4") == 0) ? AF_INET : AF_INET6;
+    int domain = (server_addr.ss_family == AF_INET) ? AF_INET : AF_INET6;
     if ((client_socket = socket(domain, SOCK_STREAM, 0)) == -1) {
         perror("Erro ao criar o socket");
         return EXIT_FAILURE;
@@ -142,6 +155,8 @@ int main(int argc, char *argv[]) {
 
     struct action server_response;
     char input[BUFFER_SIZE];
+    int game_started = 0; // Variável de controle para verificar se o jogo foi iniciado
+    int valid_moves[100] = {0}; // Armazenar movimentos válidos
 
     // Loop principal
     while (1) {
@@ -151,6 +166,10 @@ int main(int argc, char *argv[]) {
 
         if (strcmp(input, "start") == 0) {
             send_action(client_socket, ACTION_START, 0);
+            game_started = 1; // Marcar que o jogo foi iniciado
+        } else if (!game_started) {
+            printf("error: start the game first\n");
+            continue;
         } else if (strncmp(input, "move", 4) == 0) {
             char *direction = input + 5;
             int move = 0;
@@ -164,7 +183,12 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 
-            send_action(client_socket, ACTION_MOVE, move);
+            if (is_valid_move(move, valid_moves)) {
+                send_action(client_socket, ACTION_MOVE, move);
+            } else {
+                printf("error: you cannot go this way\n");
+                continue;
+            }
         } else if (strcmp(input, "map") == 0) {
             send_action(client_socket, ACTION_MAP, 0);
         } else if (strcmp(input, "hint") == 0) {
@@ -190,6 +214,7 @@ int main(int argc, char *argv[]) {
         switch (server_response.type) {
             case ACTION_UPDATE:
                 display_moves(server_response.moves);
+                memcpy(valid_moves, server_response.moves, sizeof(valid_moves)); // Atualizar movimentos válidos
                 break;
 
             case ACTION_WIN:
