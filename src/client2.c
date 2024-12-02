@@ -3,8 +3,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <netdb.h>
 
+#define PORT 51511 // Porta padrão
+#define MAX_CLIENTS 1 // Número máximo de clientes suportados
 #define BUFFER_SIZE 1024 // Tamanho do buffer para mensagens
 #define TAMANHO_LABIRINTO 10 // Tamanho máximo do labirinto
 
@@ -19,12 +20,12 @@
 #define ACTION_EXIT 7
 
 // Representação do labirinto
-#define WALL '#'
-#define PATH '_'
-#define ENTRY '>'
-#define EXIT 'X'
-#define UNKNOWN '?'
-#define PLAYER '+'
+#define WALL 0
+#define PATH 1
+#define ENTRY 2
+#define EXIT 3
+#define UNKNOWN 4
+#define PLAYER 5
 
 // Estrutura da mensagem
 struct action {
@@ -33,200 +34,208 @@ struct action {
     int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO];
 };
 
-void display_moves(int moves[100]) {
-    printf("Possible moves: ");
-    int first = 1;
+void send_board_partial(int client_socket, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int x, int y) {
+    struct action server_response = {0};
+    server_response.type = ACTION_UPDATE;
 
-    for (int i = 0; i < 100 && moves[i] != 0; i++) {
-        if (!first) printf(", ");
-        first = 0;
-
-        switch (moves[i]) {
-            case 1: printf("up"); break;
-            case 2: printf("right"); break;
-            case 3: printf("down"); break;
-            case 4: printf("left"); break;
-        }
-    }
-    printf(".\n");
-}
-
-void display_board(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
-    printf("Mapa do labirinto:\n");
+    // Percorrer o labirinto e decidir o que enviar
     for (int i = 0; i < TAMANHO_LABIRINTO; i++) {
         for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
-            char symbol;
-            switch (board[i][j]) {
-                case 0: symbol = WALL; break;
-                case 1: symbol = PATH; break;
-                case 2: symbol = ENTRY; break;
-                case 3: symbol = EXIT; break;
-                case 4: symbol = UNKNOWN; break;
-                case 5: symbol = PLAYER; break;
-                default: symbol = '?'; // Caso inesperado
+            // Revelar células dentro de um raio de 1 célula ao redor da posição do jogador
+            if (abs(i - x) <= 1 && abs(j - y) <= 1) {
+                server_response.board[i][j] = board[i][j]; // Revela o conteúdo da célula
+            } else {
+                server_response.board[i][j] = UNKNOWN; // Células fora do alcance permanecem ocultas
             }
-            printf("%c\t", symbol);
         }
-        printf("\n");
     }
+
+    // Enviar a resposta com o labirinto parcial para o cliente
+    send(client_socket, &server_response, sizeof(server_response), 0);
 }
 
-void send_action(int socket, int action_type, int move) {
-    struct action client_action = {0};
-    client_action.type = action_type;
-    if (move > 0) client_action.moves[0] = move;
-
-    if (send(socket, &client_action, sizeof(client_action), 0) == -1) {
-        perror("Erro ao enviar dados");
-    }
-}
-
-void configure_client_address(const char *server_ip, int port, struct sockaddr_storage *server_addr, socklen_t *addr_len) {
-    struct addrinfo hints, *res;
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC; // Permite IPv4 ou IPv6
-    hints.ai_socktype = SOCK_STREAM;
-
-    if (getaddrinfo(server_ip, NULL, &hints, &res) != 0) {
-        perror("Erro ao resolver endereço");
+void load_labyrinth(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        perror("Erro ao abrir o arquivo do labirinto");
         exit(EXIT_FAILURE);
     }
 
-    if (res->ai_family == AF_INET) { // IPv4
+    for (int i = 0; i < TAMANHO_LABIRINTO; i++) {
+        for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
+            if (fscanf(file, "%d", &board[i][j]) != 1) {
+                fprintf(stderr, "Erro ao ler o arquivo do labirinto\n");
+                fclose(file);
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+
+    fclose(file);
+}
+
+void get_valid_moves(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int player_pos[2], int moves[100]) {
+    int x = player_pos[0], y = player_pos[1];
+    int idx = 0;
+
+    if (x > 0 && board[x - 1][y] != WALL) moves[idx++] = 1; // Cima
+    if (y < TAMANHO_LABIRINTO - 1 && board[x][y + 1] != WALL) moves[idx++] = 2; // Direita
+    if (x < TAMANHO_LABIRINTO - 1 && board[x + 1][y] != WALL) moves[idx++] = 3; // Baixo
+    if (y > 0 && board[x][y - 1] != WALL) moves[idx++] = 4; // Esquerda
+
+    while (idx < 100) moves[idx++] = 0; // Preencher restante com 0
+}
+
+void update_player_position(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int *x, int *y, int direction) {
+    board[*x][*y] = PATH; // Liberar posição atual
+
+    if (direction == 1 && *x > 0) (*x)--; // Cima
+    else if (direction == 2 && *y < TAMANHO_LABIRINTO - 1) (*y)++; // Direita
+    else if (direction == 3 && *x < TAMANHO_LABIRINTO - 1) (*x)++; // Baixo
+    else if (direction == 4 && *y > 0) (*y)--; // Esquerda
+
+    board[*x][*y] = PLAYER;
+}
+
+void configure_server_address(const char *version, int port, struct sockaddr_storage *server_addr, socklen_t *addr_len) {
+    if (strcmp(version, "v4") == 0) {
         struct sockaddr_in *addr = (struct sockaddr_in *)server_addr;
         *addr_len = sizeof(struct sockaddr_in);
         addr->sin_family = AF_INET;
         addr->sin_port = htons(port);
-        addr->sin_addr = ((struct sockaddr_in *)res->ai_addr)->sin_addr;
-    } else if (res->ai_family == AF_INET6) { // IPv6
+        addr->sin_addr.s_addr = INADDR_ANY;
+    } else if (strcmp(version, "v6") == 0) {
         struct sockaddr_in6 *addr = (struct sockaddr_in6 *)server_addr;
         *addr_len = sizeof(struct sockaddr_in6);
         addr->sin6_family = AF_INET6;
         addr->sin6_port = htons(port);
-        addr->sin6_addr = ((struct sockaddr_in6 *)res->ai_addr)->sin6_addr;
+        addr->sin6_addr = in6addr_any;
     } else {
-        fprintf(stderr, "Versão de IP não suportada\n");
+        fprintf(stderr, "Versão de IP inválida: %s\n", version);
         exit(EXIT_FAILURE);
     }
-
-    freeaddrinfo(res);
 }
 
-int is_valid_move(int move, int valid_moves[100]) {
-    for (int i = 0; i < 100 && valid_moves[i] != 0; i++) {
-        if (valid_moves[i] == move) {
-            return 1;
-        }
-    }
-    return 0;
-}
+void handle_client(int client_socket, int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
+    struct action client_action, server_response; 
+    int player_pos[2] = {0, 0}; // Posição inicial do jogador
 
-int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Uso: %s <endereco_servidor> <porta>\n", argv[0]);
-        return EXIT_FAILURE;
-    }
-
-    const char *server_ip = argv[1];
-    int port = atoi(argv[2]);
-
-    int client_socket;
-    struct sockaddr_storage server_addr;
-    socklen_t addr_len;
-
-    // Configurar endereço do servidor
-    configure_client_address(server_ip, port, &server_addr, &addr_len);
-
-    // Criar socket
-    int domain = (server_addr.ss_family == AF_INET) ? AF_INET : AF_INET6;
-    if ((client_socket = socket(domain, SOCK_STREAM, 0)) == -1) {
-        perror("Erro ao criar o socket");
-        return EXIT_FAILURE;
-    }
-
-    // Conectar ao servidor
-    if (connect(client_socket, (struct sockaddr *)&server_addr, addr_len) == -1) {
-        perror("Erro ao conectar ao servidor");
-        close(client_socket);
-        return EXIT_FAILURE;
-    }
-
-    printf("Conectado ao servidor\n");
-
-    struct action server_response;
-    char input[BUFFER_SIZE];
-    int game_started = 0; // Variável de controle para verificar se o jogo foi iniciado
-    int valid_moves[100] = {0}; // Armazenar movimentos válidos
-
-    // Loop principal
+    // Loop principal de comunicação
     while (1) {
-        printf("> ");
-        fgets(input, sizeof(input), stdin);
-        input[strcspn(input, "\n")] = 0; // Remover o newline
-
-        if (strcmp(input, "start") == 0) {
-            send_action(client_socket, ACTION_START, 0);
-            game_started = 1; // Marcar que o jogo foi iniciado
-        } else if (!game_started) {
-            printf("error: start the game first\n");
-            continue;
-        } else if (strncmp(input, "move", 4) == 0) {
-            char *direction = input + 5;
-            int move = 0;
-
-            if (strcmp(direction, "up") == 0) move = 1;
-            else if (strcmp(direction, "right") == 0) move = 2;
-            else if (strcmp(direction, "down") == 0) move = 3;
-            else if (strcmp(direction, "left") == 0) move = 4;
-            else {
-                printf("error: command not found\n");
-                continue;
-            }
-
-            if (is_valid_move(move, valid_moves)) {
-                send_action(client_socket, ACTION_MOVE, move);
-            } else {
-                printf("error: you cannot go this way\n");
-                continue;
-            }
-        } else if (strcmp(input, "map") == 0) {
-            send_action(client_socket, ACTION_MAP, 0);
-        } else if (strcmp(input, "hint") == 0) {
-            send_action(client_socket, ACTION_HINT, 0);
-        } else if (strcmp(input, "reset") == 0) {
-            send_action(client_socket, ACTION_RESET, 0);
-        } else if (strcmp(input, "exit") == 0) {
-            send_action(client_socket, ACTION_EXIT, 0);
-            break;
-        } else {
-            printf("error: command not found\n");
-            continue;
-        }
-
-        // Receber resposta do servidor
-        ssize_t bytes_received = recv(client_socket, &server_response, sizeof(server_response), 0);
+        ssize_t bytes_received = recv(client_socket, &client_action, sizeof(client_action), 0);
         if (bytes_received <= 0) {
-            printf("Conexão com o servidor encerrada\n");
+            printf("client desconnected\n");
             break;
         }
 
-        // Processar resposta
-        switch (server_response.type) {
-            case ACTION_UPDATE:
-                display_moves(server_response.moves);
-                memcpy(valid_moves, server_response.moves, sizeof(valid_moves)); // Atualizar movimentos válidos
+        memset(&server_response, 0, sizeof(server_response));
+        switch (client_action.type) {
+            case ACTION_START:
+                printf("starting new game\n");
+                server_response.type = ACTION_UPDATE;
+                get_valid_moves(labyrinth, player_pos, server_response.moves);
+                send(client_socket, &server_response, sizeof(server_response), 0);
                 break;
 
-            case ACTION_WIN:
-                printf("You escaped!\n");
-                display_board(server_response.board);
+            case ACTION_MOVE:
+                if (client_action.moves[0] >= 1 && client_action.moves[0] <= 4) {
+                    update_player_position(labyrinth, &player_pos[0], &player_pos[1], client_action.moves[0]);
+                    server_response.type = ACTION_UPDATE;
+                    get_valid_moves(labyrinth, player_pos, server_response.moves);
+                }
+                send(client_socket, &server_response, sizeof(server_response), 0);
                 break;
+
+            case ACTION_MAP:
+                server_response.type = ACTION_UPDATE;
+                send_board_partial(client_socket, labyrinth, player_pos[0], player_pos[1]);
+                break;
+
+            case ACTION_RESET:
+                printf("starting new game\n");
+                load_labyrinth("labyrinth.txt", labyrinth);
+                for (int i = 0; i < TAMANHO_LABIRINTO; i++) {
+                    for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
+                        if (labyrinth[i][j] == ENTRY) {
+                            player_pos[0] = i;
+                            player_pos[1] = j;
+                            labyrinth[i][j] = PLAYER;
+                            break;
+                        }
+                    }
+                }
+                server_response.type = ACTION_UPDATE;
+                get_valid_moves(labyrinth, player_pos, server_response.moves);
+                send(client_socket, &server_response, sizeof(server_response), 0);
+                break;
+
+            case ACTION_EXIT:
+                printf("client disconnected\n");
+                close(client_socket);
+                return;
 
             default:
-                printf("Resposta desconhecida do servidor\n");
+                break;
         }
     }
 
     close(client_socket);
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 5 || strcmp(argv[3], "-i") != 0) {
+        fprintf(stderr, "Uso: %s <v4/v6> <porta> -i <arquivo_labirinto>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    const char *ip_version = argv[1];
+    int port = atoi(argv[2]);
+    char *labyrinth_file = argv[4];
+
+    int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO] = {0};
+
+    // Carregar o labirinto do arquivo
+    load_labyrinth(labyrinth_file, labyrinth);
+
+    int server_socket;
+    struct sockaddr_storage server_addr;
+    socklen_t addr_len;
+
+    // Configurar endereço do servidor
+    configure_server_address(ip_version, port, &server_addr, &addr_len);
+ // Criar socket
+    int domain = (strcmp(ip_version, "v4") == 0) ? AF_INET : AF_INET6;
+    if ((server_socket = socket(domain, SOCK_STREAM, 0)) == -1) {
+        perror("Erro ao criar o socket");
+        return EXIT_FAILURE;
+    }
+
+    // Vincular o socket
+    if (bind(server_socket, (struct sockaddr *)&server_addr, addr_len) == -1) {
+        perror("Erro ao vincular o socket");
+        close(server_socket);
+        return EXIT_FAILURE;
+    }
+
+    // Iniciar escuta
+    if (listen(server_socket, MAX_CLIENTS) == -1) {
+        perror("Erro ao escutar");
+        close(server_socket);
+        return EXIT_FAILURE;
+    }
+
+    while (1) {
+        struct sockaddr_storage client_addr;
+        socklen_t client_addr_len = sizeof(client_addr);
+        int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_len);
+        if (client_socket == -1) {
+            perror("Erro ao aceitar conexão");
+            continue;
+        }
+        printf("client connected\n");
+        handle_client(client_socket, labyrinth);
+    }
+
+    close(server_socket);
     return EXIT_SUCCESS;
 }
