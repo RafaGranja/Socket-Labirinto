@@ -33,7 +33,7 @@ struct action {
     int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO];
 };
 
-void display_hint(int moves[100]) {
+void mostrarDica(int moves[100]) {
     printf("Hint: ");
     int first = 1;
 
@@ -51,7 +51,7 @@ void display_hint(int moves[100]) {
     printf("\n");
 }
 
-void display_moves(int moves[100]) {
+void mostrarMovimentos(int moves[100]) {
     printf("Possible moves: ");
     int first = 1;
 
@@ -69,7 +69,7 @@ void display_moves(int moves[100]) {
     printf(".\n");
 }
 
-void display_board(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
+void mostrarMapa(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
     printf("Mapa do labirinto:\n");
     for (int i = 0; i < TAMANHO_LABIRINTO; i++) {
         for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
@@ -89,7 +89,7 @@ void display_board(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
     }
 }
 
-void send_action(int socket, int action_type, int move) {
+void enviaAction(int socket, int action_type, int move) {
     struct action client_action = {0};
     client_action.type = action_type;
     if (move > 0) client_action.moves[0] = move;
@@ -99,7 +99,7 @@ void send_action(int socket, int action_type, int move) {
     }
 }
 
-void configure_client_address(const char *server_ip, int port, struct sockaddr_storage *server_addr, socklen_t *addr_len) {
+void configuraCliente(const char *server_ip, int port, struct sockaddr_storage *server_addr, socklen_t *addr_len) {
     struct addrinfo hints, *res;
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC; // Permite IPv4 ou IPv6
@@ -130,7 +130,7 @@ void configure_client_address(const char *server_ip, int port, struct sockaddr_s
     freeaddrinfo(res);
 }
 
-int is_valid_move(int move, int valid_moves[100]) {
+int movimentosValidos(int move, int valid_moves[100]) {
     for (int i = 0; i < 100 && valid_moves[i] != 0; i++) {
         if (valid_moves[i] == move) {
             return 1;
@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
     socklen_t addr_len;
 
     // Configurar endereço do servidor
-    configure_client_address(server_ip, port, &server_addr, &addr_len);
+    configuraCliente(server_ip, port, &server_addr, &addr_len);
 
     // Criar socket
     int domain = (server_addr.ss_family == AF_INET) ? AF_INET : AF_INET6;
@@ -183,19 +183,19 @@ int main(int argc, char *argv[]) {
         input[strcspn(input, "\n")] = 0; // Remover o newline
 
         if (strcmp(input, "start") == 0) {
-            send_action(client_socket, ACTION_START, 0);
+            enviaAction(client_socket, ACTION_START, 0);
             game_started = 1; // Marcar que o jogo foi iniciado
         } else if (!game_started) {
             printf("error: start the game first\n");
             continue;
         } else if (strcmp(input, "map") == 0) {
-            send_action(client_socket, ACTION_MAP, 0);
+            enviaAction(client_socket, ACTION_MAP, 0);
         } else if (strcmp(input, "hint") == 0) {
-            send_action(client_socket, ACTION_HINT, 0);
+            enviaAction(client_socket, ACTION_HINT, 0);
         } else if (strcmp(input, "reset") == 0) {
-            send_action(client_socket, ACTION_RESET, 0);
+            enviaAction(client_socket, ACTION_RESET, 0);
         } else if (strcmp(input, "exit") == 0) {
-            send_action(client_socket, ACTION_EXIT, 0);
+            enviaAction(client_socket, ACTION_EXIT, 0);
             break;
         } else {
             int move = 0;
@@ -205,8 +205,8 @@ int main(int argc, char *argv[]) {
             else if (strcmp(input, "left") == 0) move = 4;
 
             if (move > 0) {
-                if (is_valid_move(move, valid_moves)) {
-                    send_action(client_socket, ACTION_MOVE, move);
+                if (movimentosValidos(move, valid_moves)) {
+                    enviaAction(client_socket, ACTION_MOVE, move);
                 } else {
                     printf("error: you cannot go this way\n");
                     continue;
@@ -228,20 +228,20 @@ int main(int argc, char *argv[]) {
         switch (server_response.type) {
             case ACTION_UPDATE:
                 if(strcmp(input, "map") == 0){
-                    display_board(server_response.board);
+                    mostrarMapa(server_response.board);
                 }
                 else if(strcmp(input, "hint") == 0){
-                    display_hint(server_response.moves);
+                    mostrarDica(server_response.moves);
                 }
                 else{
-                    display_moves(server_response.moves);
+                    mostrarMovimentos(server_response.moves);
                     memcpy(valid_moves, server_response.moves, sizeof(valid_moves)); // Atualizar movimentos válidos
                 }
                 break;
 
             case ACTION_WIN:
                 printf("You escaped!\n");
-                display_board(server_response.board);
+                mostrarMapa(server_response.board);
                 break;
 
             default:

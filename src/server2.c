@@ -41,7 +41,20 @@ typedef struct {
     int path_length;
 } Node;
 
-void send_board_partial(int client_socket, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int x, int y) {
+void enviaMapaCompleto(int client_socket, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
+    struct action server_response = {0};
+    server_response.type = ACTION_WIN;
+    // Revelar todo o labirinto
+    for (int i = 0; i < TAMANHO_LABIRINTO; i++) {
+        for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
+            server_response.board[i][j] = board[i][j];
+        }
+    }
+    // Enviar a resposta com o labirinto completo para o cliente
+    send(client_socket, &server_response, sizeof(server_response), 0);
+}
+
+void enviaMapa(int client_socket, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int x, int y) {
     struct action server_response = {0};
     server_response.type = ACTION_UPDATE;
 
@@ -61,7 +74,7 @@ void send_board_partial(int client_socket, int board[TAMANHO_LABIRINTO][TAMANHO_
     send(client_socket, &server_response, sizeof(server_response), 0);
 }
 
-void load_labyrinth(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
+void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
     FILE *file = fopen(filename, "r");
     if (!file) {
         perror("Erro ao abrir o arquivo do labirinto");
@@ -79,7 +92,7 @@ void load_labyrinth(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO_L
     fclose(file);
 }
 
-void get_valid_moves(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int player_pos[2], int moves[100]) {
+void movimentosValidos(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int player_pos[2], int moves[100]) {
     int x = player_pos[0], y = player_pos[1];
     int idx = 0;
 
@@ -91,22 +104,33 @@ void get_valid_moves(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int player
     while (idx < 100) moves[idx++] = 0; // Preencher restante com 0
 }
 
-void update_player_position(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int *x, int *y, int direction) {
+int atualizaPosicaoJogador(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int *x, int *y, int direction, int client_socket) {
     board[*x][*y] = PATH; // Liberar posição atual
+    if (direction == 1 && *x > 0) {
+        (*x)--; // Cima
+    } else if (direction == 2 && *y < TAMANHO_LABIRINTO - 1) {
+        (*y)++; // Direita
+    } else if (direction == 3 && *x < TAMANHO_LABIRINTO - 1) {
+        (*x)++; // Baixo
+    } else if (direction == 4 && *y > 0) {
+        (*y)--; // Esquerda
+    }
 
-    if (direction == 1 && *x > 0) (*x)--; // Cima
-    else if (direction == 2 && *y < TAMANHO_LABIRINTO - 1) (*y)++; // Direita
-    else if (direction == 3 && *x < TAMANHO_LABIRINTO - 1) (*x)++; // Baixo
-    else if (direction == 4 && *y > 0) (*y)--; // Esquerda
+    if (board[*x][*y] == EXIT) {
+        enviaMapaCompleto(client_socket, board);
+        return 0;
+    }
 
     board[*x][*y] = PLAYER;
+
+    return 1;
 }
 
-bool is_valid_position(int x, int y, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], bool visited[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
+bool posicaoValida(int x, int y, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], bool visited[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
     return x >= 0 && x < TAMANHO_LABIRINTO && y >= 0 && y < TAMANHO_LABIRINTO && board[x][y] != WALL && !visited[x][y];
 }
 
-void find_path_to_exit(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int start_x, int start_y, int moves[100]) {
+void buscaCaminho(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int start_x, int start_y, int moves[100]) {
     bool visited[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO] = {false};
     Node queue[1000];
     int front = 0, rear = 0;
@@ -129,7 +153,7 @@ void find_path_to_exit(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int star
             int new_x = current.x + directions[i][0];
             int new_y = current.y + directions[i][1];
 
-            if (is_valid_position(new_x, new_y, board, visited)) {
+            if (posicaoValida(new_x, new_y, board, visited)) {
                 visited[new_x][new_y] = true;
                 Node next = {new_x, new_y, {0}, current.path_length + 1};
                 memcpy(next.path, current.path, sizeof(current.path));
@@ -142,7 +166,7 @@ void find_path_to_exit(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int star
     moves[0] = 0; // No path found
 }
 
-void configure_server_address(const char *version, int port, struct sockaddr_storage *server_addr, socklen_t *addr_len) {
+void configuraServidor(const char *version, int port, struct sockaddr_storage *server_addr, socklen_t *addr_len) {
     if (strcmp(version, "v4") == 0) {
         struct sockaddr_in *addr = (struct sockaddr_in *)server_addr;
         *addr_len = sizeof(struct sockaddr_in);
@@ -161,7 +185,7 @@ void configure_server_address(const char *version, int port, struct sockaddr_sto
     }
 }
 
-void handle_client(int client_socket, int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
+void loopCliente(int client_socket, int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
     struct action client_action, server_response; 
     int player_pos[2] = {0, 0}; // Posição inicial do jogador
 
@@ -178,28 +202,29 @@ void handle_client(int client_socket, int labyrinth[TAMANHO_LABIRINTO][TAMANHO_L
             case ACTION_START:
                 printf("starting new game\n");
                 server_response.type = ACTION_UPDATE;
-                get_valid_moves(labyrinth, player_pos, server_response.moves);
+                movimentosValidos(labyrinth, player_pos, server_response.moves);
                 send(client_socket, &server_response, sizeof(server_response), 0);
                 break;
 
             case ACTION_MOVE:
                 if (client_action.moves[0] >= 1 && client_action.moves[0] <= 4) {
-                    update_player_position(labyrinth, &player_pos[0], &player_pos[1], client_action.moves[0]);
-                    server_response.type = ACTION_UPDATE;
-                    get_valid_moves(labyrinth, player_pos, server_response.moves);
+                    int verifica = atualizaPosicaoJogador(labyrinth, &player_pos[0], &player_pos[1], client_action.moves[0]);
+                    if(verifica==1){
+                        server_response.type = ACTION_UPDATE;
+                        movimentosValidos(labyrinth, player_pos, server_response.moves);
+                    }
                 }
                 send(client_socket, &server_response, sizeof(server_response), 0);
                 break;
 
             case ACTION_MAP:
                 server_response.type = ACTION_UPDATE;
-                send_board_partial(client_socket, labyrinth, player_pos[0], player_pos[1]);
+                enviaMapa(client_socket, labyrinth, player_pos[0], player_pos[1]);
                 break;
 
             case ACTION_HINT:
-                printf("providing hint\n");
                 server_response.type = ACTION_UPDATE;
-                find_path_to_exit(labyrinth, player_pos[0], player_pos[1], server_response.moves);
+                buscaCaminho(labyrinth, player_pos[0], player_pos[1], server_response.moves);
                 send(client_socket, &server_response, sizeof(server_response), 0);
                 break;
 
@@ -216,7 +241,7 @@ void handle_client(int client_socket, int labyrinth[TAMANHO_LABIRINTO][TAMANHO_L
                     }
                 }
                 server_response.type = ACTION_UPDATE;
-                get_valid_moves(labyrinth, player_pos, server_response.moves);
+                movimentosValidos(labyrinth, player_pos, server_response.moves);
                 send(client_socket, &server_response, sizeof(server_response), 0);
                 break;
 
@@ -246,14 +271,14 @@ int main(int argc, char *argv[]) {
     int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO] = {0};
 
     // Carregar o labirinto do arquivo
-    load_labyrinth(labyrinth_file, labyrinth);
+    carregaLabirinto(labyrinth_file, labyrinth);
 
     int server_socket;
     struct sockaddr_storage server_addr;
     socklen_t addr_len;
 
     // Configurar endereço do servidor
-    configure_server_address(ip_version, port, &server_addr, &addr_len);
+    configuraServidor(ip_version, port, &server_addr, &addr_len);
 
     // Criar socket
     int domain = (strcmp(ip_version, "v4") == 0) ? AF_INET : AF_INET6;
@@ -285,7 +310,7 @@ int main(int argc, char *argv[]) {
             continue;
         }
         printf("client connected\n");
-        handle_client(client_socket, labyrinth);
+        loopCliente(client_socket, labyrinth);
     }
 
     close(server_socket);
