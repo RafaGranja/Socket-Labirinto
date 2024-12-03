@@ -191,9 +191,11 @@ int main(int argc, char *argv[]) {
                     send_action(client_socket, ACTION_MOVE, move);
                 } else {
                     printf("error: you cannot go this way\n");
+                    continue;
                 }
             } else {
                 printf("error: command not found\n");
+                continue;
             }
         }
 
@@ -222,7 +224,7 @@ int main(int argc, char *argv[]) {
                 break;
 
             default:
-                printf("Resposta desconhecida do servidor\n");
+                continue;
         }
 
     }
