@@ -214,8 +214,8 @@ int main(int argc, char *argv[]) {
                 }
                 else{
                     display_moves(server_response.moves);
+                    memcpy(valid_moves, server_response.moves, sizeof(valid_moves)); // Atualizar movimentos válidos
                 }
-                memcpy(valid_moves, server_response.moves, sizeof(valid_moves)); // Atualizar movimentos válidos
                 break;
 
             case ACTION_WIN:
