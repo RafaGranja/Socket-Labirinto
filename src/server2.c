@@ -186,7 +186,7 @@ void handle_client(int client_socket, int labyrinth[TAMANHO_LABIRINTO][TAMANHO_L
                 if (client_action.moves[0] >= 1 && client_action.moves[0] <= 4) {
                     update_player_position(labyrinth, &player_pos[0], &player_pos[1], client_action.moves[0]);
                     server_response.type = ACTION_UPDATE;
-                    get_valid_moves   get_valid_moves(labyrinth, player_pos, server_response.moves);
+                    get_valid_moves(labyrinth, player_pos, server_response.moves);
                 }
                 send(client_socket, &server_response, sizeof(server_response), 0);
                 break;
