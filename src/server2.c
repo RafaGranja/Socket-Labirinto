@@ -64,9 +64,7 @@ void load_labyrinth(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO_L
     for (int i = 0; i < TAMANHO_LABIRINTO; i++) {
         for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
             if (fscanf(file, "%d", &board[i][j]) != 1) {
-                fprintf(stderr, "Erro ao ler o arquivo do labirinto\n");
-                fclose(file);
-                exit(EXIT_FAILURE);
+                board[i][j] = -1;
             }
         }
     }
