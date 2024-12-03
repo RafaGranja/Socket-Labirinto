@@ -230,7 +230,7 @@ int main(int argc, char *argv[]) {
                 if(strcmp(input, "map") == 0){
                     display_board(server_response.board);
                 }
-                if(strcmp(input, "map") == 0){
+                else if(strcmp(input, "hint") == 0){
                     display_hint(server_response.moves);
                 }
                 else{
