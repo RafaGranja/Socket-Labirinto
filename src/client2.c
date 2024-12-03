@@ -170,25 +170,6 @@ int main(int argc, char *argv[]) {
         } else if (!game_started) {
             printf("error: start the game first\n");
             continue;
-        } else if (strncmp(input, "move", 4) == 0) {
-            char *direction = input + 5;
-            int move = 0;
-
-            if (strcmp(direction, "up") == 0) move = 1;
-            else if (strcmp(direction, "right") == 0) move = 2;
-            else if (strcmp(direction, "down") == 0) move = 3;
-            else if (strcmp(direction, "left") == 0) move = 4;
-            else {
-                printf("error: command not found\n");
-                continue;
-            }
-
-            if (is_valid_move(move, valid_moves)) {
-                send_action(client_socket, ACTION_MOVE, move);
-            } else {
-                printf("error: you cannot go this way\n");
-                continue;
-            }
         } else if (strcmp(input, "map") == 0) {
             send_action(client_socket, ACTION_MAP, 0);
         } else if (strcmp(input, "hint") == 0) {
@@ -199,8 +180,21 @@ int main(int argc, char *argv[]) {
             send_action(client_socket, ACTION_EXIT, 0);
             break;
         } else {
-            printf("error: command not found\n");
-            continue;
+            int move = 0;
+            if (strcmp(input, "up") == 0) move = 1;
+            else if (strcmp(input, "right") == 0) move = 2;
+            else if (strcmp(input, "down") == 0) move = 3;
+            else if (strcmp(input, "left") == 0) move = 4;
+
+            if (move > 0) {
+                if (is_valid_move(move, valid_moves)) {
+                    send_action(client_socket, ACTION_MOVE, move);
+                } else {
+                    printf("error: you cannot go this way\n");
+                }
+            } else {
+                printf("error: command not found\n");
+            }
         }
 
         // Receber resposta do servidor
@@ -213,7 +207,10 @@ int main(int argc, char *argv[]) {
         // Processar resposta
         switch (server_response.type) {
             case ACTION_UPDATE:
-                display_moves(server_response.moves);
+                if(strcmp(input, "map") == 0){
+                    display_board(server_response.board);
+                }
+                //display_moves(server_response.moves);
                 memcpy(valid_moves, server_response.moves, sizeof(valid_moves)); // Atualizar movimentos válidos
                 break;
 
@@ -225,6 +222,7 @@ int main(int argc, char *argv[]) {
             default:
                 printf("Resposta desconhecida do servidor\n");
         }
+
     }
 
     close(client_socket);
