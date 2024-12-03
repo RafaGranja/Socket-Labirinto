@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <stdbool.h>
 
 #define PORT 51511 // Porta padrão
 #define MAX_CLIENTS 1 // Número máximo de clientes suportados
@@ -33,6 +34,12 @@ struct action {
     int moves[100];
     int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO];
 };
+
+typedef struct {
+    int x, y;
+    int path[100];
+    int path_length;
+} Node;
 
 void send_board_partial(int client_socket, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int x, int y) {
     struct action server_response = {0};
@@ -95,30 +102,44 @@ void update_player_position(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int
     board[*x][*y] = PLAYER;
 }
 
-int find_path_to_exit(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int x, int y, int moves[100], int idx) {
-    if (idx >= 100) return 0; // Limite de movimentos
+bool is_valid_position(int x, int y, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], bool visited[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
+    return x >= 0 && x < TAMANHO_LABIRINTO && y >= 0 && y < TAMANHO_LABIRINTO && board[x][y] != WALL && !visited[x][y];
+}
 
-    if (board[x][y] == EXIT) {
-        moves[idx] = 0; // Finalizar a lista de movimentos
-        return 1;
-    }
+void find_path_to_exit(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int start_x, int start_y, int moves[100]) {
+    bool visited[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO] = {false};
+    Node queue[1000];
+    int front = 0, rear = 0;
+
+    Node start = {start_x, start_y, {0}, 0};
+    queue[rear++] = start;
+    visited[start_x][start_y] = true;
 
     int directions[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
     int move_codes[4] = {1, 3, 4, 2};
 
-    for (int i = 0; i < 4; i++) {
-        int new_x = x + directions[i][0];
-        int new_y = y + directions[i][1];
+    while (front < rear) {
+        Node current = queue[front++];
+        if (board[current.x][current.y] == EXIT) {
+            memcpy(moves, current.path, sizeof(current.path));
+            return;
+        }
 
-        if (new_x >= 0 && new_x < TAMANHO_LABIRINTO && new_y >= 0 && new_y < TAMANHO_LABIRINTO && board[new_x][new_y] != WALL) {
-            moves[idx] = move_codes[i];
-            if (find_path_to_exit(board, new_x, new_y, moves, idx + 1)) {
-                return 1;
+        for (int i = 0; i < 4; i++) {
+            int new_x = current.x + directions[i][0];
+            int new_y = current.y + directions[i][1];
+
+            if (is_valid_position(new_x, new_y, board, visited)) {
+                visited[new_x][new_y] = true;
+                Node next = {new_x, new_y, {0}, current.path_length + 1};
+                memcpy(next.path, current.path, sizeof(current.path));
+                next.path[current.path_length] = move_codes[i];
+                queue[rear++] = next;
             }
         }
     }
 
-    return 0;
+    moves[0] = 0; // No path found
 }
 
 void configure_server_address(const char *version, int port, struct sockaddr_storage *server_addr, socklen_t *addr_len) {
@@ -165,7 +186,7 @@ void handle_client(int client_socket, int labyrinth[TAMANHO_LABIRINTO][TAMANHO_L
                 if (client_action.moves[0] >= 1 && client_action.moves[0] <= 4) {
                     update_player_position(labyrinth, &player_pos[0], &player_pos[1], client_action.moves[0]);
                     server_response.type = ACTION_UPDATE;
-                    get_valid_moves(labyrinth, player_pos, server_response.moves);
+                    get_valid_moves   get_valid_moves(labyrinth, player_pos, server_response.moves);
                 }
                 send(client_socket, &server_response, sizeof(server_response), 0);
                 break;
@@ -178,7 +199,7 @@ void handle_client(int client_socket, int labyrinth[TAMANHO_LABIRINTO][TAMANHO_L
             case ACTION_HINT:
                 printf("providing hint\n");
                 server_response.type = ACTION_UPDATE;
-                find_path_to_exit(labyrinth, player_pos[0], player_pos[1], server_response.moves, 0);
+                find_path_to_exit(labyrinth, player_pos[0], player_pos[1], server_response.moves);
                 send(client_socket, &server_response, sizeof(server_response), 0);
                 break;
 
