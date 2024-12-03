@@ -208,7 +208,7 @@ void loopCliente(int client_socket, int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LAB
 
             case ACTION_MOVE:
                 if (client_action.moves[0] >= 1 && client_action.moves[0] <= 4) {
-                    int verifica = atualizaPosicaoJogador(labyrinth, &player_pos[0], &player_pos[1], client_action.moves[0]);
+                    int verifica = atualizaPosicaoJogador(labyrinth, &player_pos[0], &player_pos[1], client_action.moves[0], client_socket);
                     if(verifica==1){
                         server_response.type = ACTION_UPDATE;
                         movimentosValidos(labyrinth, player_pos, server_response.moves);
