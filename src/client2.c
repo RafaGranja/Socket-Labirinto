@@ -6,7 +6,7 @@
 #include <netdb.h>
 
 #define BUFFER_SIZE 1024 // Tamanho do buffer para mensagens
-#define TAMANHO_LABIRINTO 10 // Tamanho máximo do labirinto
+#define TAMANHO_LABIRINTO 5 // Tamanho máximo do labirinto
 
 // Tipos de ações
 #define ACTION_START 0
@@ -32,6 +32,24 @@ struct action {
     int moves[100];
     int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO];
 };
+
+void display_hint(int moves[100]) {
+    printf("Hint: ");
+    int first = 1;
+
+    for (int i = 0; i < 100 && moves[i] != 0; i++) {
+        if (!first) printf(", ");
+        first = 0;
+
+        switch (moves[i]) {
+            case 1: printf("up"); break;
+            case 2: printf("right"); break;
+            case 3: printf("down"); break;
+            case 4: printf("left"); break;
+        }
+    }
+    printf("\n");
+}
 
 void display_moves(int moves[100]) {
     printf("Possible moves: ");
@@ -211,6 +229,9 @@ int main(int argc, char *argv[]) {
             case ACTION_UPDATE:
                 if(strcmp(input, "map") == 0){
                     display_board(server_response.board);
+                }
+                if(strcmp(input, "map") == 0){
+                    display_hint(server_response.moves);
                 }
                 else{
                     display_moves(server_response.moves);
