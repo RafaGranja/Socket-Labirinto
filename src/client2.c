@@ -210,7 +210,9 @@ int main(int argc, char *argv[]) {
                 if(strcmp(input, "map") == 0){
                     display_board(server_response.board);
                 }
-                //display_moves(server_response.moves);
+                else{
+                    display_moves(server_response.moves);
+                }
                 memcpy(valid_moves, server_response.moves, sizeof(valid_moves)); // Atualizar movimentos válidos
                 break;
 
