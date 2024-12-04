@@ -8,7 +8,7 @@
 #define PORT 51511 // Porta padrão
 #define MAX_CLIENTS 1 // Número máximo de clientes suportados
 #define BUFFER_SIZE 1024 // Tamanho do buffer para mensagens
-#define TAMANHO_LABIRINTO 5 // Tamanho máximo do labirinto
+#define TAMANHO_LABIRINTO 10 // Tamanho máximo do labirinto
 
 // Tipos de ações
 #define ACTION_START 0
@@ -72,6 +72,40 @@ void enviaMapa(int client_socket, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO
 
     // Enviar a resposta com o labirinto parcial para o cliente
     send(client_socket, &server_response, sizeof(server_response), 0);
+}
+
+void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        perror("Erro ao abrir o arquivo do labirinto");
+        exit(EXIT_FAILURE);
+    }
+
+    int i = 0, j = 0;
+    int ch;
+    while ((ch = fgetc(file)) != EOF) {
+        if (ch == '\n') {
+            // Preencher o resto da linha com WALL
+            while (j < TAMANHO_LABIRINTO) {
+                board[i][j++] = WALL;
+            }
+            i++;
+            j = 0; // Reiniciar a coluna para a nova linha
+        } else if (ch >= '0' && ch <= '5') {
+            board[i][j++] = atoi(ch) ;
+            if (j == TAMANHO_LABIRINTO) {
+                i++;
+                j = 0; // Reiniciar a coluna para a nova linha
+            }
+        }
+    }
+
+    // Preencher o resto da última linha com WALL, se necessário
+    while (j < 10) {
+        board[i][j++] = WALL;
+    }
+
+    fclose(file);
 }
 
 void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {

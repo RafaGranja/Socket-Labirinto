@@ -6,7 +6,7 @@
 #include <netdb.h>
 
 #define BUFFER_SIZE 1024 // Tamanho do buffer para mensagens
-#define TAMANHO_LABIRINTO 5 // Tamanho máximo do labirinto
+#define TAMANHO_LABIRINTO 10 // Tamanho máximo do labirinto
 
 // Tipos de ações
 #define ACTION_START 0
