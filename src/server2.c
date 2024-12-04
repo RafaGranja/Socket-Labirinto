@@ -123,7 +123,9 @@ int atualizaPosicaoJogador(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int 
         return 0;
     }
 
-    board[*x][*y] = PLAYER;
+    if(board[*x][*y]!=ENTRY && board[*x][*y]!=EXIT){
+            board[*x][*y] = PLAYER;
+    }
 
     return 1;
 }
