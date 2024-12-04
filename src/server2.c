@@ -211,7 +211,7 @@ void configuraServidor(const char *version, int port, struct sockaddr_storage *s
     }
 }
 
-oid retornaPosicaoJogador(int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int pos[2]) {
+void retornaPosicaoJogador(int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int pos[2]) {
     // Percorrer o labirinto e decidir o que enviar
     for (int i = 0; i < TAMANHO_LABIRINTO; i++) {
         for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
