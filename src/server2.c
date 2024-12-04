@@ -82,7 +82,7 @@ void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO
     }
 
     int i = 0, j = 0,ch_int;
-    int ch;
+    char ch;
     while ((ch = fgetc(file)) != EOF) {
         ch_int = atoi(ch);
         printf("%c = %d",(ch),ch_int);
