@@ -239,7 +239,9 @@ void loopCliente(int client_socket, int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LAB
                         if (labyrinth[i][j] == ENTRY) {
                             player_pos[0] = i;
                             player_pos[1] = j;
-                            break;
+                        }
+                        else if (labyrinth[i][j] == PLAYER){
+                            labyrinth[i][j] = PATH;
                         }
                     }
                 }
