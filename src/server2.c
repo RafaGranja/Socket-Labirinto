@@ -91,8 +91,8 @@ void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO
             }
             i++;
             j = 0; // Reiniciar a coluna para a nova linha
-        } else if (ch >= '0' && ch <= '5') {
-            board[i][j++] = atoi(ch) ;
+        } else if (ch >= 0 && ch <= 5) {
+            board[i][j++] = ch ;
             if (j == TAMANHO_LABIRINTO) {
                 i++;
                 j = 0; // Reiniciar a coluna para a nova linha
