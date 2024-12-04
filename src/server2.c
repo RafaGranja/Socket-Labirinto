@@ -87,7 +87,8 @@ void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO
         if (ch == '\n') {
             // Preencher o resto da linha com WALL
             while (j < TAMANHO_LABIRINTO) {
-                board[i][j++] = WALL;
+                board[i][j] = WALL;
+                j++;
             }
             i++;
             j = 0; // Reiniciar a coluna para a nova linha
@@ -96,6 +97,9 @@ void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO
             if (j == TAMANHO_LABIRINTO) {
                 i++;
                 j = 0; // Reiniciar a coluna para a nova linha
+            }
+            else{
+                j++;
             }
         }
     }
@@ -107,24 +111,6 @@ void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO
 
     fclose(file);
 }
-
-// void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
-//     FILE *file = fopen(filename, "r");
-//     if (!file) {
-//         perror("Erro ao abrir o arquivo do labirinto");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     for (int i = 0; i < TAMANHO_LABIRINTO; i++) {
-//         for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
-//             if (fscanf(file, "%d", &board[i][j]) != 1) {
-//                 board[i][j] = -1;
-//             }
-//         }
-//     }
-
-//     fclose(file);
-// }
 
 void movimentosValidos(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int player_pos[2], int moves[100]) {
     int x = player_pos[0], y = player_pos[1];
