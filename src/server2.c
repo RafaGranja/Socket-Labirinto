@@ -84,7 +84,7 @@ void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO
     int i = 0, j = 0;
     int ch;
     while ((ch = fgetc(file)) != EOF) {
-        printf("%c",(ch));
+        printf("%d",(ch));
         if (ch == '\n') {
             i++;
             j = 0; // Reiniciar a coluna para a nova linha
