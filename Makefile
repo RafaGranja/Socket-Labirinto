@@ -1,10 +1,10 @@
 all: server client
 
-server: src/server2.c 
-	gcc -o bin/server src/server2.c
+server: src/server.c 
+	gcc -o bin/server src/server.c
 
-client: src/client2.c 
-	gcc -o bin/client src/client2.c
+client: src/client.c 
+	gcc -o bin/client src/client.c
 
 clean:
 	rm -f bin/server bin/client
