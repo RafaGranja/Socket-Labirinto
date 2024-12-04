@@ -13,3 +13,8 @@ run-server:
 	bin/server v4 51511 -i input/in.txt
 run-client:
 	bin/client 127.0.0.1 51511
+
+git-update:
+	git stash
+	git pull
+	make all
