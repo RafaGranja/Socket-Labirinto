@@ -119,7 +119,7 @@ void movimentosValidos(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int play
 
 int atualizaPosicaoJogador(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int *x, int *y, int direction, int client_socket) {
     
-    if(board[*x][*y]!=EXIT){
+    if(board[*x][*y]!=EXIT && board[*x][*y]!=ENTRY && board[*x][*y]!=PLAYER_ENTRY){
         board[*x][*y] = PATH; // Liberar posição atual
     }
     
@@ -142,7 +142,7 @@ int atualizaPosicaoJogador(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int 
         return 0;
     }
 
-    if(board[*x][*y]!=ENTRY){
+    if(board[*x][*y]!=ENTRY && board[*x][*y]!=EXIT){
         board[*x][*y] = PLAYER;
     }
     else{
