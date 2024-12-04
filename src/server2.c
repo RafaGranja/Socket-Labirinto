@@ -84,6 +84,7 @@ void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO
     int i = 0, j = 0;
     int ch;
     while ((ch = fgetc(file)) != EOF) {
+        printf("%c",(ch))
         if (ch == '\n') {
             // Preencher o resto da linha com WALL
             while (j < TAMANHO_LABIRINTO) {
