@@ -86,28 +86,12 @@ void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO
     while ((ch = fgetc(file)) != EOF) {
         printf("%c",(ch));
         if (ch == '\n') {
-            // Preencher o resto da linha com WALL
-            while (j < TAMANHO_LABIRINTO) {
-                board[i][j] = WALL;
-                j++;
-            }
             i++;
             j = 0; // Reiniciar a coluna para a nova linha
         } else if (ch >= 0 && ch <= 5) {
             board[i][j] = ch ;
-            if (j == TAMANHO_LABIRINTO) {
-                i++;
-                j = 0; // Reiniciar a coluna para a nova linha
-            }
-            else{
-                j++;
-            }
+            j++;
         }
-    }
-
-    // Preencher o resto da última linha com WALL, se necessário
-    while (j < 10) {
-        board[i][j++] = WALL;
     }
 
     fclose(file);
@@ -294,7 +278,7 @@ int main(int argc, char *argv[]) {
     int port = atoi(argv[2]);
     char *labyrinth_file = argv[4];
 
-    int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO] = {0};
+    int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO] = {WALL};
 
     // Carregar o labirinto do arquivo
     carregaLabirinto(labyrinth_file, labyrinth);
