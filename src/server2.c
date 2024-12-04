@@ -108,23 +108,23 @@ void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO
     fclose(file);
 }
 
-void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
-    FILE *file = fopen(filename, "r");
-    if (!file) {
-        perror("Erro ao abrir o arquivo do labirinto");
-        exit(EXIT_FAILURE);
-    }
+// void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
+//     FILE *file = fopen(filename, "r");
+//     if (!file) {
+//         perror("Erro ao abrir o arquivo do labirinto");
+//         exit(EXIT_FAILURE);
+//     }
 
-    for (int i = 0; i < TAMANHO_LABIRINTO; i++) {
-        for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
-            if (fscanf(file, "%d", &board[i][j]) != 1) {
-                board[i][j] = -1;
-            }
-        }
-    }
+//     for (int i = 0; i < TAMANHO_LABIRINTO; i++) {
+//         for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
+//             if (fscanf(file, "%d", &board[i][j]) != 1) {
+//                 board[i][j] = -1;
+//             }
+//         }
+//     }
 
-    fclose(file);
-}
+//     fclose(file);
+// }
 
 void movimentosValidos(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int player_pos[2], int moves[100]) {
     int x = player_pos[0], y = player_pos[1];
