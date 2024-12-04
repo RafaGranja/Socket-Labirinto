@@ -27,6 +27,7 @@
 #define EXIT 3
 #define UNKNOWN 4
 #define PLAYER 5
+#define PLAYER_ENTRY 6
 
 // Estrutura da mensagem
 struct action {
@@ -47,7 +48,11 @@ void enviaMapaCompleto(int client_socket, int board[TAMANHO_LABIRINTO][TAMANHO_L
     // Revelar todo o labirinto
     for (int i = 0; i < TAMANHO_LABIRINTO; i++) {
         for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
-            server_response.board[i][j] = board[i][j];
+            if(board[i][j]==PLAYER_ENTRY){
+                    server_response.board[i][j] = PLAYER;
+            }else{
+                server_response.board[i][j] = board[i][j]; // Revela o conteúdo da célula
+            }
         }
     }
     // Enviar a resposta com o labirinto completo para o cliente
@@ -63,7 +68,11 @@ void enviaMapa(int client_socket, int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO
         for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
             // Revelar células dentro de um raio de 1 célula ao redor da posição do jogador
             if (abs(i - x) <= 1 && abs(j - y) <= 1) {
-                server_response.board[i][j] = board[i][j]; // Revela o conteúdo da célula
+                if(board[i][j]==PLAYER_ENTRY){
+                    server_response.board[i][j] = PLAYER;
+                }else{
+                    server_response.board[i][j] = board[i][j]; // Revela o conteúdo da célula
+                }
             } else {
                 server_response.board[i][j] = UNKNOWN; // Células fora do alcance permanecem ocultas
             }
@@ -109,9 +118,15 @@ void movimentosValidos(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int play
 }
 
 int atualizaPosicaoJogador(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int *x, int *y, int direction, int client_socket) {
-    if(board[*x][*y]!=ENTRY && board[*x][*y]!=EXIT){
+    
+    if(board[*x][*y]!=EXIT){
         board[*x][*y] = PATH; // Liberar posição atual
     }
+    
+    if(board[*x][*y]==PLAYER_ENTRY){
+        board[*x][*y] = ENTRY;
+    }
+
     if (direction == 1 && *x > 0) {
         (*x)--; // Cima
     } else if (direction == 2 && *y < TAMANHO_LABIRINTO - 1) {
@@ -127,8 +142,11 @@ int atualizaPosicaoJogador(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int 
         return 0;
     }
 
-    if(board[*x][*y]!=ENTRY && board[*x][*y]!=EXIT){
+    if(board[*x][*y]!=ENTRY){
         board[*x][*y] = PLAYER;
+    }
+    else{
+        board[*x][*y] = PLAYER_ENTRY;
     }
 
     return 1;
@@ -193,10 +211,23 @@ void configuraServidor(const char *version, int port, struct sockaddr_storage *s
     }
 }
 
+int* retornaPosicaoJogador(int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]){
+
+ // Percorrer o labirinto e decidir o que enviar
+    for (int i = 0; i < TAMANHO_LABIRINTO; i++) {
+        for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
+            if(labyrinth[i][j]==2){
+                return  {i, j};
+            }
+        }
+    }
+
+}
+
 void loopCliente(int client_socket, int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
     struct action client_action, server_response; 
-    int player_pos[2] = {0, 0}; // Posição inicial do jogador
-
+    int player_pos[2] = retornaPosicaoJogador(labyrinth); // Posição inicial do jogador
+    labyrinth[player_pos[0]][player_pos[1]]=PLAYER_ENTRY;
     // Loop principal de comunicação
     while (1) {
         ssize_t bytes_received = recv(client_socket, &client_action, sizeof(client_action), 0);
