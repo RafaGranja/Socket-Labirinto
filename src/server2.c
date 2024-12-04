@@ -89,7 +89,8 @@ void carregaLabirinto(const char *filename, int board[TAMANHO_LABIRINTO][TAMANHO
             i++;
             j = 0; // Reiniciar a coluna para a nova linha
         } else if (ch >= 0 && ch <= 5) {
-            board[i][j] = ch ;
+            printf("Vou inserir %d na posicao %d,%d",ch,i,j);
+            board[i][j] = ch;
             j++;
         }
     }
