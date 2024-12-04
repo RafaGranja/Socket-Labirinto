@@ -105,7 +105,9 @@ void movimentosValidos(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int play
 }
 
 int atualizaPosicaoJogador(int board[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int *x, int *y, int direction, int client_socket) {
-    board[*x][*y] = PATH; // Liberar posição atual
+    if(board[*x][*y]!=ENTRY && board[*x][*y]!=EXIT){
+        board[*x][*y] = PATH; // Liberar posição atual
+    }
     if (direction == 1 && *x > 0) {
         (*x)--; // Cima
     } else if (direction == 2 && *y < TAMANHO_LABIRINTO - 1) {
