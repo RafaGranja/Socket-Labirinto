@@ -211,22 +211,27 @@ void configuraServidor(const char *version, int port, struct sockaddr_storage *s
     }
 }
 
-int* retornaPosicaoJogador(int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]){
-
- // Percorrer o labirinto e decidir o que enviar
+oid retornaPosicaoJogador(int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO], int pos[2]) {
+    // Percorrer o labirinto e decidir o que enviar
     for (int i = 0; i < TAMANHO_LABIRINTO; i++) {
         for (int j = 0; j < TAMANHO_LABIRINTO; j++) {
-            if(labyrinth[i][j]==2){
-                return  {i, j};
+            if (labyrinth[i][j] == ENTRY) {
+                pos[0] = i;
+                pos[1] = j;
+                return;
             }
         }
     }
 
+    // Se não encontrar, retorna (0,0)
+    pos[0] = 0;
+    pos[1] = 0;
 }
 
 void loopCliente(int client_socket, int labyrinth[TAMANHO_LABIRINTO][TAMANHO_LABIRINTO]) {
     struct action client_action, server_response; 
-    int player_pos[2] = retornaPosicaoJogador(labyrinth); // Posição inicial do jogador
+    int player_pos[2];
+    retornaPosicaoJogador(labyrinth, player_pos);// Posição inicial do jogador
     labyrinth[player_pos[0]][player_pos[1]]=PLAYER_ENTRY;
     // Loop principal de comunicação
     while (1) {
